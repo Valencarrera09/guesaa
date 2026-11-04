@@ -37,4 +37,6 @@ guesaa/
 ├── index.html        # Página principal del sitio
 ├── estilos.css       # Hoja de estilos global
 ├── script.js         # Lógica interactiva (carrito y estado del local)
+├── fuentes.css       # @font-face de Bungee y Montserrat (auto-hospedadas)
+├── fuentes/          # Archivos .woff2 de las tipografías (sin Google Fonts)
 └── IMG/              # Recursos visuales, mascotas e íconos del menú

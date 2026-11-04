@@ -702,6 +702,10 @@ function enviarWhatsApp() {
   const observaciones = inputObservaciones ? inputObservaciones.value.trim() : "";
   const pagoCon = inputPagoCon ? parseFloat(inputPagoCon.value) : 0;
   const metodoPago = metodoPagoSelect ? metodoPagoSelect.value : "Efectivo";
+  // Seguridad (informe 3.1): el mensaje puede enviarse SIN precios para que
+  // el local recalcule el total con su lista oficial (evita estafa con F12)
+  const checkboxPrecios = document.getElementById("ocultar-precios");
+  const ocultarPrecios = checkboxPrecios ? checkboxPrecios.checked : false;
 
   let esValido = true;
 
@@ -747,12 +751,14 @@ function enviarWhatsApp() {
     let precioUnitarioTotal = item.precio;
     let textoAdicionales = "";
     let textoAdicionalesHTML = "";
+    let textoAdicionalesSinPrecios = "";
 
     if (item.adicionales && item.adicionales.length > 0) {
       item.adicionales.forEach(a => {
         precioUnitarioTotal += a.precio;
         textoAdicionales += `\n     + Extra: ${a.nombre} (+$${a.precio.toLocaleString("es-AR")})`;
         textoAdicionalesHTML += `<br>➕ Extra: ${escaparHTML(a.nombre)} (+$${a.precio.toLocaleString("es-AR")})`;
+        textoAdicionalesSinPrecios += `\n     + Extra: ${a.nombre}`;
       });
     }
 
@@ -760,7 +766,11 @@ function enviarWhatsApp() {
     const subtotalItem = precioUnitarioTotal * cantidadItem;
     subtotalGeneral += subtotalItem;
 
-    mensaje += `${i + 1}. *${cantidadItem}x ${item.nombre}* ($${subtotalItem.toLocaleString("es-AR")})\n   Detalle: ${item.detalle}${textoAdicionales}\n\n`;
+    if (ocultarPrecios) {
+      mensaje += `${i + 1}. *${cantidadItem}x ${item.nombre}*\n   Detalle: ${item.detalle}${textoAdicionalesSinPrecios}\n\n`;
+    } else {
+      mensaje += `${i + 1}. *${cantidadItem}x ${item.nombre}* ($${subtotalItem.toLocaleString("es-AR")})\n   Detalle: ${item.detalle}${textoAdicionales}\n\n`;
+    }
     resumenHTML += `<li style="margin-bottom: 6px;"><b>${cantidadItem}x ${escaparHTML(item.nombre)}</b> - $${subtotalItem.toLocaleString("es-AR")} <br><small style="color: #6b7280;">${escaparHTML(item.detalle)}${textoAdicionalesHTML}</small></li>`;
   });
 
@@ -770,12 +780,16 @@ function enviarWhatsApp() {
   if (metodoPago === "Transferencia") {
     const recargo = Math.round(subtotalGeneral * 0.06);
     totalFinal = subtotalGeneral + recargo;
-    mensaje += `*Subtotal:* $${subtotalGeneral.toLocaleString("es-AR")}\n`;
-    mensaje += `*Recargo Transferencia (6%):* $${recargo.toLocaleString("es-AR")}\n`;
+    if (!ocultarPrecios) mensaje += `*Subtotal:* $${subtotalGeneral.toLocaleString("es-AR")}\n`;
+    if (!ocultarPrecios) mensaje += `*Recargo Transferencia (6%):* $${recargo.toLocaleString("es-AR")}\n`;
     resumenHTML += `<p style="color: #b45309; font-size: 0.9rem;"><b>Recargo Transferencia/MP (6%):</b> +$${recargo.toLocaleString("es-AR")}</p>`;
   }
 
-  mensaje += `*TOTAL FINAL:* $${totalFinal.toLocaleString("es-AR")}\n\n`;
+  if (ocultarPrecios) {
+    mensaje += `*TOTAL FINAL:* el local lo confirma con su lista de precios oficial ✅\n\n`;
+  } else {
+    mensaje += `*TOTAL FINAL:* $${totalFinal.toLocaleString("es-AR")}\n\n`;
+  }
   resumenHTML += `
     <div style="background: #edf7f1; padding: 12px; border-radius: 8px; border: 1.5px solid #2b543b; margin-top: 10px;">
       <p style="margin: 0; font-size: 1.15rem; color: #162c1f; text-align: center;">
@@ -785,7 +799,7 @@ function enviarWhatsApp() {
   `;
 
   // Cálculo de vuelto si paga en Efectivo
-  if (metodoPago === "Efectivo" && pagoCon > 0) {
+  if (metodoPago === "Efectivo" && pagoCon > 0 && !ocultarPrecios) {
     const vuelto = pagoCon - totalFinal;
     if (vuelto >= 0) {
       mensaje += `💵 *Paga con:* $${pagoCon.toLocaleString("es-AR")} (Vuelto: $${vuelto.toLocaleString("es-AR")})\n`;
@@ -808,9 +822,14 @@ function enviarWhatsApp() {
     mensaje += `\n💳 *DATOS DE TRANSFERENCIA:*\n`;
     mensaje += `• *Alias:* tango.ff\n`;
     mensaje += `• *Titular:* Thiago Sebastian Altamirano\n`;
-    mensaje += `_(Pagar $${totalFinal.toLocaleString("es-AR")} al alias indicado con el 6% incluido y adjuntar comprobante a este chat.)_\n`;
+    mensaje += ocultarPrecios
+      ? `_(Transferir el monto correspondiente al alias indicado y adjuntar el comprobante a este chat.)_\n`
+      : `_(Pagar $${totalFinal.toLocaleString("es-AR")} al alias indicado con el 6% incluido y adjuntar comprobante a este chat.)_\n`;
   }
 
+  if (ocultarPrecios) {
+    mensaje += `\n📝 *Nota:* el local confirma el total con su lista de precios oficial.\n`;
+  }
   mensaje += `\n¡Quedo a la espera de la confirmación!`;
   mensajeWhatsAppGenerado = mensaje;
 

@@ -8,7 +8,7 @@
        Bloquea scripts externos, plugins y elementos <base> maliciosos.
        Nota: los onclick están en línea, por eso 'unsafe-inline' es necesario
        en esta fase; hardening futuro = moverlos a script.js y quitarlo. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'">
   <title>Tango Fast Food - Menú Oficial</title>
   <meta name="description" content="Smash burgers · Pan a elección (Papa, Brioche o Parmesano) · Envíos en 30-45 min. Pedidos por WhatsApp.">
   <meta name="theme-color" content="#0d1b13">
@@ -25,10 +25,8 @@
   <meta property="og:url" content="https://valengarcia09.github.io/guesaa/">
   <meta name="twitter:card" content="summary_large_image">
   
-  <!-- Fuentes Google: Bungee para el logo de marca + Montserrat para UI -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- Fuentes auto-hospedadas (informe 3.9): Bungee + Montserrat desde el repo -->
+  <link rel="stylesheet" href="fuentes.css">
   
   <!-- Hoja de Estilos -->
   <link rel="stylesheet" href="estilos.css">
@@ -613,6 +611,14 @@
           Al presionar serás dirigido a Mercado Pago para abonar con el recargo incluido. Luego, enviá el pedido por WhatsApp adjuntando el comprobante.
         </p>
       </div>
+    </div>
+
+    <!-- SEGURIDAD (informe 3.1): mensaje a WhatsApp sin precios -->
+    <div class="input-field-group">
+      <label for="ocultar-precios" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+        <input type="checkbox" id="ocultar-precios" checked>
+        <span style="font-weight: 600;">Ocultar los precios del mensaje de WhatsApp (el local confirma el total con la lista oficial)</span>
+      </label>
     </div>
 
     <button id="btn-checkout" class="btn-whatsapp-checkout" onclick="enviarWhatsApp()">
