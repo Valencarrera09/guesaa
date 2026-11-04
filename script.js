@@ -127,6 +127,19 @@ function actualizarUltimoPedidoUI() {
 }
 
 // -------------------------------------------------------------
+// SEGURIDAD (Informe 3.4): escapar texto ANTES de meterlo en HTML
+// Evita inyección de HTML/XSS desde Nombre, Dirección, Notas, etc.
+// -------------------------------------------------------------
+function escaparHTML(texto) {
+  return String(texto)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// -------------------------------------------------------------
 // TOASTS FLUIDOS (Inspirado en Sonner / Emil Kowalski)
 // -------------------------------------------------------------
 function mostrarToast(mensaje, tipo = "success") {
@@ -141,7 +154,7 @@ function mostrarToast(mensaje, tipo = "success") {
   if (tipo === "burger") icono = "🍔";
   if (tipo === "fries") icono = "🍟";
 
-  toast.innerHTML = `<span>${icono}</span> <span>${mensaje}</span>`;
+  toast.innerHTML = `<span>${icono}</span> <span>${escaparHTML(mensaje)}</span>`;
   container.appendChild(toast);
 
   // Auto-eliminar después de 2.6 segundos con animación suave
@@ -157,27 +170,49 @@ function mostrarToast(mensaje, tipo = "success") {
 
 // -------------------------------------------------------------
 // VERIFICAR ESTADO DEL LOCAL (Viernes a Domingo de 19:00 a 00:00)
+// Fix informe (3.8): se calcula la hora en ARGENTINA, no en el reloj del visitante
 // -------------------------------------------------------------
+function obtenerHoraArgentina() {
+  const partes = new Intl.DateTimeFormat("es-AR", {
+    timeZone: "America/Buenos_Aires",
+    weekday: "long",
+    hour: "2-digit",
+    hour12: false
+  }).formatToParts(new Date());
+
+  const parteDe = (tipo) => (partes.find(p => p.type === tipo) || {}).value || "";
+  return {
+    dia: parteDe("weekday").toLowerCase(),
+    hora: parseInt(parteDe("hour"), 10) % 24 // la medianoche puede devolver "24"
+  };
+}
+
+function localEstaAbierto() {
+  const { dia, hora } = obtenerHoraArgentina();
+  // Viernes(5), Sábado(6) y Domingo(0) de 19:00 a 23:59 hs
+  const esDiaPermitido = (dia === "viernes" || dia === "sábado" || dia === "domingo");
+  const esHoraPermitida = (hora >= 19);
+  return esDiaPermitido && esHoraPermitida;
+}
+
 function verificarEstadoLocal() {
   const contenedor = document.getElementById("estado-local");
   const texto = document.getElementById("texto-estado");
   if (!contenedor || !texto) return;
 
-  const ahora = new Date();
-  const dia = ahora.getDay(); // 0: Domingo, 5: Viernes, 6: Sábado
-  const hora = ahora.getHours();
+  const abierto = localEstaAbierto();
 
-  // Viernes(5), Sábado(6) y Domingo(0) de 19:00 a 23:59 hs
-  const esDiaPermitido = (dia === 5 || dia === 6 || dia === 0);
-  const esHoraPermitida = (hora >= 19 && hora < 24);
-
-  if (esDiaPermitido && esHoraPermitida) {
+  if (abierto) {
     contenedor.className = "estado-bar abierto";
     texto.innerHTML = "LOCAL ABIERTO &bull; Horario: Vie a Dom 19:00 a 00:00 hs";
   } else {
     contenedor.className = "estado-bar cerrado";
     texto.innerHTML = "LOCAL CERRADO &bull; Horario: Vie a Dom 19:00 a 00:00 hs";
   }
+
+  // Bloquear el botón de envío fuera del horario de atención
+  const btnCheckout = document.getElementById("btn-checkout");
+  if (btnCheckout) btnCheckout.disabled = !abierto;
 }
 
 // -------------------------------------------------------------
@@ -406,7 +441,7 @@ function actualizarCarrito() {
     if (item.adicionales && item.adicionales.length > 0) {
       item.adicionales.forEach(a => {
         precioUnitarioTotal += a.precio;
-        adicionalesHtml += `<br><span class="item-extra">➕ Extra: ${a.nombre} (+$${a.precio.toLocaleString("es-AR")})</span>`;
+        adicionalesHtml += `<br><span class="item-extra">➕ Extra: ${escaparHTML(a.nombre)} (+$${a.precio.toLocaleString("es-AR")})</span>`;
       });
     }
 
@@ -417,8 +452,8 @@ function actualizarCarrito() {
     html += `
       <div class="item-carrito-row">
         <div class="item-info">
-          <span class="item-nombre">${item.nombre}</span>
-          <span class="item-detalle">${item.detalle}${adicionalesHtml}</span>
+          <span class="item-nombre">${escaparHTML(item.nombre)}</span>
+          <span class="item-detalle">${escaparHTML(item.detalle)}${adicionalesHtml}</span>
           <span style="font-weight: 800; color: #ea580c; font-size: 0.95rem; margin-top: 2px;">$${subtotalItem.toLocaleString("es-AR")}</span>
         </div>
         <div class="item-controles">
@@ -648,6 +683,12 @@ function iniciarStaggerTarjetas() {
 // CHECKOUT: PREPARAR Y DESPLEGAR MODAL DE RESUMEN
 // -------------------------------------------------------------
 function enviarWhatsApp() {
+  // Seguridad (informe 3.8): no enviar pedidos fuera del horario de atención
+  if (!localEstaAbierto()) {
+    mostrarToast("El local está cerrado. Recibimos pedidos de Vie, Sáb y Dom de 19 a 00 hs 🍔", "warning");
+    return;
+  }
+
   const inputNombre = document.getElementById("nombre");
   const inputDireccion = document.getElementById("direccion");
   const inputEntreCalles = document.getElementById("entrecalles");
@@ -692,9 +733,9 @@ function enviarWhatsApp() {
   let subtotalGeneral = 0;
   let resumenHTML = `
     <div style="background: #f9fafb; padding: 12px; border-radius: 8px; margin-bottom: 14px; border: 1px solid #e5e7eb;">
-      <p style="margin: 3px 0;"><b>👤 Cliente:</b> ${nombre}</p>
-      <p style="margin: 3px 0;"><b>📍 Dirección:</b> ${direccion} ${entrecalles ? '(' + entrecalles + ')' : ''}</p>
-      <p style="margin: 3px 0;"><b>💳 Pago:</b> ${metodoPago}</p>
+      <p style="margin: 3px 0;"><b>👤 Cliente:</b> ${escaparHTML(nombre)}</p>
+      <p style="margin: 3px 0;"><b>📍 Dirección:</b> ${escaparHTML(direccion)} ${entrecalles ? '(' + escaparHTML(entrecalles) + ')' : ''}</p>
+      <p style="margin: 3px 0;"><b>💳 Pago:</b> ${escaparHTML(metodoPago)}</p>
     </div>
     <p style="margin-bottom: 8px;"><b>🍔 Detalle del Pedido:</b></p>
     <ul style="padding-left: 18px; margin-bottom: 14px;">
@@ -705,11 +746,13 @@ function enviarWhatsApp() {
   carrito.forEach((item, i) => {
     let precioUnitarioTotal = item.precio;
     let textoAdicionales = "";
+    let textoAdicionalesHTML = "";
 
     if (item.adicionales && item.adicionales.length > 0) {
       item.adicionales.forEach(a => {
         precioUnitarioTotal += a.precio;
         textoAdicionales += `\n     + Extra: ${a.nombre} (+$${a.precio.toLocaleString("es-AR")})`;
+        textoAdicionalesHTML += `<br>➕ Extra: ${escaparHTML(a.nombre)} (+$${a.precio.toLocaleString("es-AR")})`;
       });
     }
 
@@ -718,7 +761,7 @@ function enviarWhatsApp() {
     subtotalGeneral += subtotalItem;
 
     mensaje += `${i + 1}. *${cantidadItem}x ${item.nombre}* ($${subtotalItem.toLocaleString("es-AR")})\n   Detalle: ${item.detalle}${textoAdicionales}\n\n`;
-    resumenHTML += `<li style="margin-bottom: 6px;"><b>${cantidadItem}x ${item.nombre}</b> - $${subtotalItem.toLocaleString("es-AR")} <br><small style="color: #6b7280;">${item.detalle}</small></li>`;
+    resumenHTML += `<li style="margin-bottom: 6px;"><b>${cantidadItem}x ${escaparHTML(item.nombre)}</b> - $${subtotalItem.toLocaleString("es-AR")} <br><small style="color: #6b7280;">${escaparHTML(item.detalle)}${textoAdicionalesHTML}</small></li>`;
   });
 
   resumenHTML += `</ul>`;
@@ -796,7 +839,7 @@ function confirmarYEnviarWhatsApp() {
   const url = `https://api.whatsapp.com/send?phone=${numeroTelefono}&text=${encodeURIComponent(mensajeWhatsAppGenerado)}`;
   // Confeti de celebración (no bloqueante, el popup abre en el mismo gesto)
   lanzarConfeti();
-  window.open(url, "_blank");
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 // -------------------------------------------------------------
@@ -940,6 +983,8 @@ function irAlCarrito() {
 // -------------------------------------------------------------
 window.onload = function() {
   verificarEstadoLocal();
+  // Refresca el estado "ABIERTO/CERRADO" y el bloqueo del botón de envío
+  setInterval(verificarEstadoLocal, 30000);
   // Limpiar clase is-invalid al escribir
   const inputs = document.querySelectorAll(".input-control");
   inputs.forEach(input => {
