@@ -49,10 +49,10 @@
 
 body {
   font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background-color: var(--verde-oscuro);
+  background-color: #0f2016; /* un paso más oscuro que --verde-oscuro para dar contraste con el patrón */
   color: var(--gris-900);
   background-image: 
-    linear-gradient(rgba(22, 44, 31, 0.73), rgba(22, 44, 31, 0.73)),
+    linear-gradient(rgba(15, 32, 22, 0.78), rgba(15, 32, 22, 0.78)),
     radial-gradient(circle at 50% 0%, rgba(43, 84, 59, 0.6) 0%, transparent 70%),
     radial-gradient(rgba(255, 255, 255, 0.04) 1.5px, transparent 1.5px),
     url('IMG/patron fondo .webp');
